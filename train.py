@@ -157,7 +157,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                 if best_loss > val_loss:
                     best_loss = val_loss
                     torch.save(model.state_dict(), osp.join(model_dir, 'best.pth'))
-                    artifact = wandb.Artifact('best.pth',type='model')
+                    artifact = wandb.Artifact(name,type='model')
                     artifact.add_file(osp.join(model_dir, 'best.pth'))
                     run.log_artifact(artifact)
 
