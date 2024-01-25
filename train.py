@@ -1,6 +1,7 @@
 import os
 import os.path as osp
 import time
+import datetime
 import math
 from datetime import timedelta
 from argparse import ArgumentParser
@@ -15,13 +16,14 @@ from east_dataset import EASTDataset
 from dataset import SceneTextDataset
 from model import EAST
 
+import wandb
 
 def parse_args():
     parser = ArgumentParser()
 
     # Conventional args
     parser.add_argument('--data_dir', type=str,
-                        default=os.environ.get('SM_CHANNEL_TRAIN', '../data/medical'))
+                        default=os.environ.get('SM_CHANNEL_TRAIN', 'datasets/data/medical'))
     parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR',
                                                                         'trained_models'))
 
@@ -36,6 +38,8 @@ def parse_args():
     parser.add_argument('--save_interval', type=int, default=1)
     parser.add_argument('--ignore_tags', type=list, default=['masked', 'excluded-region', 'maintable', 'stamp'])
 
+    parser.add_argument('--name', type=str, default='exp')
+
     args = parser.parse_args()
 
     if args.input_size % 32 != 0:
@@ -45,7 +49,17 @@ def parse_args():
 
 
 def do_training(data_dir, model_dir, device, image_size, input_size, num_workers, batch_size,
-                learning_rate, max_epoch, save_interval, ignore_tags):
+                learning_rate, max_epoch, save_interval, ignore_tags, name):
+    
+    current_time = datetime.datetime.now()+datetime.timedelta(hours=9).strftime("%Y%m%d-%H%M%S")
+    name = f'{current_time}-{name}'
+    run = wandb.init(
+        project="OCR", 
+        entity = "funfun_ocr",
+        name=name,
+        config = vars(args)
+    )
+
     train_dataset = SceneTextDataset(
         data_dir,
         split='train',
@@ -85,7 +99,6 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[max_epoch // 2], gamma=0.1)
-
     best_loss = 1e9
     for epoch in range(max_epoch):
         model.train()
@@ -111,8 +124,8 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
         scheduler.step()
 
-        print('Train Mean loss: {:.4f} | Elapsed time: {}'.format(train_epoch_loss / train_num_batches, timedelta(seconds=time.time() - epoch_start)))
-
+        train_loss = train_epoch_loss / train_num_batches
+        print('Train Mean loss: {:.4f} | Elapsed time: {}'.format(train_loss, timedelta(seconds=time.time() - epoch_start)))
 
         model.eval()
         with torch.no_grad():
@@ -132,9 +145,15 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                         'IoU loss': extra_info['iou_loss']
                     }
                     pbar.set_postfix(val_dict)
-            print('Valid Mean loss: {:.4f} | Elapsed time: {}'.format(valid_epoch_loss / valid_num_batches, timedelta(seconds=time.time() - epoch_start)))
-        
-            val_loss = valid_epoch_loss / valid_num_batches
+            val_loss = valid_epoch_loss / valid_num_batches    
+            print('Valid Mean loss: {:.4f} | Elapsed time: {}'.format(val_loss, timedelta(seconds=time.time() - epoch_start)))
+
+            run.log({
+                    'epochs':epoch,
+                    'train_loss':train_loss,
+                    'val_loss':val_loss
+                    })
+
             if (epoch + 1) % save_interval == 0:
                 if not osp.exists(model_dir):
                     os.makedirs(model_dir)
@@ -142,8 +161,13 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                 if best_loss > val_loss:
                     best_loss = val_loss
                     torch.save(model.state_dict(), osp.join(model_dir, 'best.pth'))
+                    artifact = wandb.Artifact(name,type='model')
+                    artifact.add_file(osp.join(model_dir, 'best.pth'))
+                    run.log_artifact(artifact)
 
                 torch.save(model.state_dict(), osp.join(model_dir, 'latest.pth'))
+    
+    run.finish()
             
 
 def main(args):
