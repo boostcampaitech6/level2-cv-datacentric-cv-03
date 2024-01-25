@@ -86,9 +86,9 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[max_epoch // 2], gamma=0.1)
 
-    model.train()
     best_loss = 1e9
     for epoch in range(max_epoch):
+        model.train()
         train_epoch_loss, epoch_start = 0, time.time()
         with tqdm(total=train_num_batches) as pbar:
             for img, gt_score_map, gt_geo_map, roi_mask in train_loader:
@@ -115,35 +115,36 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
 
         model.eval()
-        with tqdm(total=valid_num_batches) as pbar:
-            valid_epoch_loss, epoch_start = 0, time.time()
-            for img, gt_score_map, gt_geo_map, roi_mask in valid_loader:
-                pbar.set_description('[Valid Epoch {}]'.format(epoch + 1))
+        with torch.no_grad():
+            with tqdm(total=valid_num_batches) as pbar:
+                valid_epoch_loss, epoch_start = 0, time.time()
+                for img, gt_score_map, gt_geo_map, roi_mask in valid_loader:
+                    pbar.set_description('[Valid Epoch {}]'.format(epoch + 1))
 
-                loss, extra_info = model.train_step(img, gt_score_map, gt_geo_map, roi_mask)
+                    loss, extra_info = model.train_step(img, gt_score_map, gt_geo_map, roi_mask)
 
-                loss_val = loss.item()
-                valid_epoch_loss += loss_val
+                    loss_val = loss.item()
+                    valid_epoch_loss += loss_val
 
-                pbar.update(1)
-                val_dict = {
-                    'Cls loss': extra_info['cls_loss'], 'Angle loss': extra_info['angle_loss'],
-                    'IoU loss': extra_info['iou_loss']
-                }
-                pbar.set_postfix(val_dict)
-        print('Valid Mean loss: {:.4f} | Elapsed time: {}'.format(valid_epoch_loss / valid_num_batches, timedelta(seconds=time.time() - epoch_start)))
-    
-        val_loss = valid_epoch_loss / valid_num_batches
-        if (epoch + 1) % save_interval == 0:
-            if not osp.exists(model_dir):
-                os.makedirs(model_dir)
-
-            if best_loss > val_loss:
-                best_loss = val_loss
-                torch.save(model.state_dict(), osp.join(model_dir, 'best.pth'))
-
-            torch.save(model.state_dict(), osp.join(model_dir, 'latest.pth'))
+                    pbar.update(1)
+                    val_dict = {
+                        'Cls loss': extra_info['cls_loss'], 'Angle loss': extra_info['angle_loss'],
+                        'IoU loss': extra_info['iou_loss']
+                    }
+                    pbar.set_postfix(val_dict)
+            print('Valid Mean loss: {:.4f} | Elapsed time: {}'.format(valid_epoch_loss / valid_num_batches, timedelta(seconds=time.time() - epoch_start)))
         
+            val_loss = valid_epoch_loss / valid_num_batches
+            if (epoch + 1) % save_interval == 0:
+                if not osp.exists(model_dir):
+                    os.makedirs(model_dir)
+
+                if best_loss > val_loss:
+                    best_loss = val_loss
+                    torch.save(model.state_dict(), osp.join(model_dir, 'best.pth'))
+
+                torch.save(model.state_dict(), osp.join(model_dir, 'latest.pth'))
+            
 
 def main(args):
     do_training(**args.__dict__)
