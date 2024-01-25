@@ -51,7 +51,7 @@ def parse_args():
 def do_training(data_dir, model_dir, device, image_size, input_size, num_workers, batch_size,
                 learning_rate, max_epoch, save_interval, ignore_tags, name):
     
-    current_time = datetime.datetime.now()+datetime.timedelta(hours=9).strftime("%Y%m%d-%H%M%S")
+    current_time = (datetime.datetime.now()+datetime.timedelta(hours=9)).strftime("%Y%m%d-%H%M%S")
     name = f'{current_time}-{name}'
     run = wandb.init(
         project="OCR", 
