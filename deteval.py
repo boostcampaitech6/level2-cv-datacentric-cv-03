@@ -449,9 +449,11 @@ def calc_deteval_metrics(
                                     {
                                         "gt": gtNum,
                                         "det": matchesDet,
-                                        "type": "OO"
-                                        if len(matchesDet) == 1
-                                        else "OM",
+                                        "type": (
+                                            "OO"
+                                            if len(matchesDet) == 1
+                                            else "OM"
+                                        ),
                                     }
                                 )
                                 for detNum in matchesDet:
@@ -496,9 +498,11 @@ def calc_deteval_metrics(
                                     {
                                         "gt": matchesGt,
                                         "det": detNum,
-                                        "type": "OO"
-                                        if len(matchesGt) == 1
-                                        else "MO",
+                                        "type": (
+                                            "OO"
+                                            if len(matchesGt) == 1
+                                            else "MO"
+                                        ),
                                     }
                                 )
                                 for gtNum in matchesGt:
@@ -548,9 +552,9 @@ def calc_deteval_metrics(
             "hmean": hmean,
             "pairs": pairs,
             "recall_matrix": [] if len(detRects) > 100 else recallMat.tolist(),
-            "precision_matrix": []
-            if len(detRects) > 100
-            else precisionMat.tolist(),
+            "precision_matrix": (
+                [] if len(detRects) > 100 else precisionMat.tolist()
+            ),
             "gt_bboxes": gtPolPoints,
             "det_bboxes": detPolPoints,
             "gt_dont_care": gtDontCareRectsNum,

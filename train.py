@@ -86,13 +86,15 @@ def do_training(
     train_dataset = SceneTextDataset(
         data_dir,
         split="train",
+        annfile="split/train_42_fold_1.json",
         image_size=image_size,
         crop_size=input_size,
         ignore_tags=ignore_tags,
     )
     valid_dataset = SceneTextDataset(
         data_dir,
-        split="valid",
+        split="train",
+        annfile="split/val_42_fold_1.json",
         image_size=image_size,
         crop_size=input_size,
         ignore_tags=ignore_tags,
