@@ -1,3 +1,5 @@
 pths
 trained_models
 datasets
+__pycache__
+wandb
