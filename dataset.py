@@ -377,6 +377,7 @@ class SceneTextDataset(Dataset):
         self,
         root_dir,
         split="train",
+        annfile="train.json",
         image_size=2048,
         crop_size=1024,
         ignore_tags=[],
@@ -385,12 +386,13 @@ class SceneTextDataset(Dataset):
         color_jitter=True,
         normalize=True,
     ):
-        with open(osp.join(root_dir, "ufo/{}.json".format(split)), "r") as f:
+        # Json 파일 경로
+        with open(osp.join(root_dir, "ufo/{}".format(annfile)), "r") as f:
             anno = json.load(f)
 
         self.anno = anno
         self.image_fnames = sorted(anno["images"].keys())
-        self.image_dir = osp.join(root_dir, "img", split)
+        self.image_dir = osp.join(root_dir, "img", split)  # 이미지 폴더 경로
 
         self.image_size, self.crop_size = image_size, crop_size
         self.color_jitter, self.normalize = color_jitter, normalize
