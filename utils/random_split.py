@@ -11,14 +11,14 @@ def parse_args():
 
     # Conventional args
     parser.add_argument(
-        "--anno_dir",
+        "--anno_dir", "-a",
         type=str,
         default="/data/ephemeral/home/data/medical/ufo/train.json",
     )
     parser.add_argument(
-        "--save_dir",
+        "--save_dir", "-s",
         type=str,
-        default="/data/ephemeral/home/data/medical/split",
+        default="/data/ephemeral/home/data/medical/ufo/split",
     )
 
     args = parser.parse_args()
