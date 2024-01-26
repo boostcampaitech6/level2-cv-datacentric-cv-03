@@ -7,7 +7,9 @@ from torch.utils.data import Dataset
 
 
 def shrink_bbox(bbox, coef=0.3, inplace=False):
-    lens = [np.linalg.norm(bbox[i] - bbox[(i + 1) % 4], ord=2) for i in range(4)]
+    lens = [
+        np.linalg.norm(bbox[i] - bbox[(i + 1) % 4], ord=2) for i in range(4)
+    ]
     r = [min(lens[(i - 1) % 4], lens[i]) for i in range(4)]
 
     if not inplace:
@@ -39,19 +41,25 @@ def get_rotated_coords(h, w, theta, anchor):
 
 
 def get_rotate_mat(theta):
-    return np.array([[math.cos(theta), -math.sin(theta)],
-                     [math.sin(theta), math.cos(theta)]])
+    return np.array(
+        [
+            [math.cos(theta), -math.sin(theta)],
+            [math.sin(theta), math.cos(theta)],
+        ]
+    )
 
 
 def calc_error_from_rect(bbox):
-    '''
+    """
     Calculate the difference between the vertices orientation and default orientation. Default
     orientation is x1y1 : left-top, x2y2 : right-top, x3y3 : right-bot, x4y4 : left-bot
-    '''
+    """
     x_min, y_min = np.min(bbox, axis=0)
     x_max, y_max = np.max(bbox, axis=0)
-    rect = np.array([[x_min, y_min], [x_max, y_min], [x_max, y_max], [x_min, y_max]],
-                    dtype=np.float32)
+    rect = np.array(
+        [[x_min, y_min], [x_max, y_min], [x_max, y_max], [x_min, y_max]],
+        dtype=np.float32,
+    )
     return np.linalg.norm(bbox - rect, axis=0).sum()
 
 
@@ -64,8 +72,7 @@ def rotate_bbox(bbox, theta, anchor=None):
 
 
 def find_min_rect_angle(bbox, rank_num=10):
-    '''Find the best angle to rotate poly and obtain min rectangle
-    '''
+    """Find the best angle to rotate poly and obtain min rectangle"""
     areas = []
     angles = np.arange(-90, 90) / 180 * math.pi
     for theta in angles:
@@ -74,7 +81,7 @@ def find_min_rect_angle(bbox, rank_num=10):
         x_max, y_max = np.max(rotated_bbox, axis=0)
         areas.append((x_max - x_min) * (y_max - y_min))
 
-    best_angle, min_error = -1, float('inf')
+    best_angle, min_error = -1, float("inf")
     for idx in np.argsort(areas)[:rank_num]:
         rotated_bbox = rotate_bbox(bbox, angles[idx])
         error = calc_error_from_rect(rotated_bbox)
@@ -134,9 +141,13 @@ class EASTDataset(Dataset):
 
     def __getitem__(self, idx):
         image, word_bboxes, roi_mask = self.dataset[idx]
-        score_map, geo_map = generate_score_geo_maps(image, word_bboxes, map_scale=self.map_scale)
+        score_map, geo_map = generate_score_geo_maps(
+            image, word_bboxes, map_scale=self.map_scale
+        )
 
-        mask_size = int(image.shape[0] * self.map_scale), int(image.shape[1] * self.map_scale)
+        mask_size = int(image.shape[0] * self.map_scale), int(
+            image.shape[1] * self.map_scale
+        )
         roi_mask = cv2.resize(roi_mask, dsize=mask_size)
         if roi_mask.ndim == 2:
             roi_mask = np.expand_dims(roi_mask, axis=2)

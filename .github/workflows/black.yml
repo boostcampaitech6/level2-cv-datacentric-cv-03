@@ -1,0 +1,19 @@
+name: black formatter # github action 이름
+
+on:
+  push: # 모든 branch에 commit이 push 될때 아래 workflow(jobs) 실행
+    branches:
+      - '*'
+  pull_request: # 모든 branch에 pull_request 요청이 왔을 때 workflow(jobs) 실행
+    branches:
+      - '*'
+
+jobs:
+  Black_code_formatter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: psf/black@stable
+        with:
+          options: "-l 79 --diff --color --check"
+          src: "./"
