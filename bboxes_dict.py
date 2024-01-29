@@ -3,15 +3,17 @@ import cv2
 import json
 from metric import detect
 
-def get_pred_bboxes_dict(data_dir, images, input_size, score_maps, geo_maps, split='valid'):
-    image_list, image_fnames, by_sample_bboxes = [], [], []
+def get_pred_bboxes_dict(data_dir, images, image_fnames, input_size, score_maps, geo_maps, split='valid'):
+    # image_list, image_fnames, by_sample_bboxes = [], [], []
 
-    for image in images:
-        image_fpath = os.path.join(data_dir, f'img/{split}/{image}')
-        image_fnames.append(os.path.basename(image_fpath))
-        image_list.append(cv2.imread(image_fpath)[:, :, ::-1])
+    # for image in images:
+    #     image_fpath = os.path.join(data_dir, f'img/{split}/{image}')
+    #     image_fnames.append(os.path.basename(image_fpath))
+    #     image_list.append(cv2.imread(image_fpath)[:, :, ::-1])
 
-    by_sample_bboxes.extend(detect(image_list, input_size, score_maps, geo_maps))
+    by_sample_bboxes = []
+
+    by_sample_bboxes.extend(detect(images, input_size, score_maps, geo_maps))
 
     pred_bboxes_dict = dict()
     for idx in range(len(image_fnames)):
@@ -24,8 +26,7 @@ def get_pred_bboxes_dict(data_dir, images, input_size, score_maps, geo_maps, spl
 def get_gt_bboxes_dict(ufo_dir, images):
     gt_bboxes_dict = dict()
 
-    with open(ufo_dir, 'r') as f:
-        ufo_file = json.load(f)
+    ufo_file = ufo_dir
 
     ufo_file_images = ufo_file['images']
     for image in images:

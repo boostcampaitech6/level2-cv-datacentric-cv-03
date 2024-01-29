@@ -8,7 +8,7 @@ from albumentations.augmentations.geometric.resize import LongestMaxSize
 
 from dataset import get_rotate_mat
 
-MAX_BOX_PREDICTIONS = 1000
+MAX_BOX_PREDICTIONS = 500
 
 
 def print_warning(num_boxes):
@@ -105,15 +105,13 @@ def get_bboxes(score, geo, score_thresh=0.9, nms_thresh=0.2):
     num_boxes = len(boxes)
 
     if num_boxes > MAX_BOX_PREDICTIONS:
-        print_warning(num_boxes)
+        #print_warning(num_boxes)
         boxes = boxes[:MAX_BOX_PREDICTIONS]
 
     return boxes
 
 def detect(images, input_size, score_maps, geo_maps, map_scale=0.5):
-    orig_sizes = []
-    for image in images:
-        orig_sizes.append(image.shape[:2])
+    orig_sizes = images
 
     score_maps_, geo_maps_ = [], []
     for score_map in score_maps:
@@ -124,23 +122,22 @@ def detect(images, input_size, score_maps, geo_maps, map_scale=0.5):
 
     by_sample_bboxes = []
     for score_map, geo_map, orig_size in zip(score_maps_, geo_maps_, orig_sizes):
+        #for score_map_, geo_map_, orig_size in zip(score_map, geo_map, orig_size_):
         map_margin = int(abs(orig_size[0] - orig_size[1]) * map_scale * input_size / max(orig_size))
         if orig_size[0] == orig_size[1]:
             score_map, geo_map = score_map, geo_map        
         elif orig_size[0] > orig_size[1]:
-            score_map, geo_map = score_map[:, :, :, :-map_margin], geo_map[:, :, :, :-map_margin]
+            score_map, geo_map = score_map[:, :, :-map_margin], geo_map[:, :, :-map_margin]
         else:
-            score_map, geo_map = score_map[:, :, :-map_margin, :], geo_map[:, :, :-map_margin, :]
+            score_map, geo_map = score_map[:, :-map_margin, :], geo_map[:, :-map_margin, :]
 
+        bboxes = get_bboxes(score_map, geo_map)
+        if bboxes is None:
+            bboxes = np.zeros((0, 4, 2), dtype=np.float32)
+        else:
+            bboxes = bboxes[:, :8].reshape(-1, 4, 2)
+            bboxes *= max(orig_size) / input_size
 
-        for score_map_, geo_map_ in zip(score_map, geo_map):            
-            bboxes = get_bboxes(score_map_, geo_map_)
-            if bboxes is None:
-                bboxes = np.zeros((0, 4, 2), dtype=np.float32)
-            else:
-                bboxes = bboxes[:, :8].reshape(-1, 4, 2)
-                bboxes *= max(orig_size) / input_size
-
-            by_sample_bboxes.append(bboxes)
+        by_sample_bboxes.append(bboxes)
 
     return by_sample_bboxes

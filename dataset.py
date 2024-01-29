@@ -437,6 +437,7 @@ class SceneTextDataset(Dataset):
         )
 
         image = Image.open(image_fpath)
+        ori_size = (image.size[1], image.size[0])
         image, vertices = resize_img(image, vertices, self.image_size)
         image, vertices = adjust_height(image, vertices)
         image, vertices = rotate_img(image, vertices)
@@ -459,4 +460,4 @@ class SceneTextDataset(Dataset):
         word_bboxes = np.reshape(vertices, (-1, 4, 2))
         roi_mask = generate_roi_mask(image, vertices, labels)
 
-        return image, word_bboxes, roi_mask
+        return image, word_bboxes, roi_mask, ori_size, image_fname
