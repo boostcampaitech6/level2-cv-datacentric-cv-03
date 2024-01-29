@@ -54,7 +54,7 @@ def parse_args():
     )
 
     parser.add_argument("--name", type=str, default="exp")
-
+    parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
     if args.input_size % 32 != 0:
@@ -62,6 +62,14 @@ def parse_args():
 
     return args
 
+def seed_everything(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  # if use multi-GPU
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
+    random.seed(seed)
 
 def do_training(
     data_dir,
@@ -76,6 +84,7 @@ def do_training(
     save_interval,
     ignore_tags,
     name,
+    seed
 ):
     current_time = (
         datetime.datetime.now() + datetime.timedelta(hours=9)
@@ -84,6 +93,8 @@ def do_training(
     run = wandb.init(
         project="OCR", entity="funfun_ocr", name=name, config=vars(args)
     )
+
+    seed_everything(seed)
 
     train_dataset = SceneTextDataset(
         data_dir,
