@@ -140,7 +140,9 @@ class EASTDataset(Dataset):
         self.to_tensor = to_tensor
 
     def __getitem__(self, idx):
-        image, word_bboxes, roi_mask, image_size, image_fname = self.dataset[idx]
+        image, word_bboxes, roi_mask, image_size, image_fname = self.dataset[
+            idx
+        ]
         score_map, geo_map = generate_score_geo_maps(
             image, word_bboxes, map_scale=self.map_scale
         )
