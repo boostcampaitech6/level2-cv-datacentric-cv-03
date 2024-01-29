@@ -16,28 +16,33 @@ def print_warning(num_boxes):
         f"Found {num_boxes} boxes. Only {MAX_BOX_PREDICTIONS} boxes will be kept. "
         "Model trained with insufficient epochs could largely increase "
         "the number of bounding boxes. Check if the model was trained sufficiently.",
-        stacklevel=2)
+        stacklevel=2,
+    )
 
 
 def is_valid_poly(res, score_shape, scale):
-    '''check if the poly in image scope
+    """check if the poly in image scope
     Input:
         res        : restored poly in original image
         score_shape: score map shape
         scale      : feature map -> image
     Output:
         True if valid
-    '''
+    """
     cnt = 0
     for i in range(res.shape[1]):
-        if (res[0, i] < 0 or res[0, i] >= score_shape[1] * scale or res[1, i] < 0 or
-            res[1, i] >= score_shape[0] * scale):
+        if (
+            res[0, i] < 0
+            or res[0, i] >= score_shape[1] * scale
+            or res[1, i] < 0
+            or res[1, i] >= score_shape[0] * scale
+        ):
             cnt += 1
     return cnt <= 1
 
 
 def restore_polys(valid_pos, valid_geo, score_shape, scale=2):
-    '''restore polys from feature maps in given positions
+    """restore polys from feature maps in given positions
     Input:
         valid_pos  : potential text positions <numpy.ndarray, (n,2)>
         valid_geo  : geometry in valid_pos <numpy.ndarray, (5,n)>
@@ -45,12 +50,12 @@ def restore_polys(valid_pos, valid_geo, score_shape, scale=2):
         scale      : image / feature map
     Output:
         restored polys <numpy.ndarray, (n,8)>, index
-    '''
+    """
     polys = []
     index = []
     valid_pos *= scale
-    d = valid_geo[:4, :] # 4 x N
-    angle = valid_geo[4, :] # N,
+    d = valid_geo[:4, :]  # 4 x N
+    angle = valid_geo[4, :]  # N,
 
     for i in range(valid_pos.shape[0]):
         x = valid_pos[i, 0]
@@ -70,13 +75,23 @@ def restore_polys(valid_pos, valid_geo, score_shape, scale=2):
 
         if is_valid_poly(res, score_shape, scale):
             index.append(i)
-            polys.append([res[0, 0], res[1, 0], res[0, 1], res[1, 1], res[0, 2], res[1, 2],
-                          res[0, 3], res[1, 3]])
+            polys.append(
+                [
+                    res[0, 0],
+                    res[1, 0],
+                    res[0, 1],
+                    res[1, 1],
+                    res[0, 2],
+                    res[1, 2],
+                    res[0, 3],
+                    res[1, 3],
+                ]
+            )
     return np.array(polys), index
 
 
 def get_bboxes(score, geo, score_thresh=0.9, nms_thresh=0.2):
-    '''get boxes from feature map
+    """get boxes from feature map
     Input:
         score       : score map from model <numpy.ndarray, (1,row,col)>
         geo         : geo map from model <numpy.ndarray, (5,row,col)>
@@ -84,9 +99,9 @@ def get_bboxes(score, geo, score_thresh=0.9, nms_thresh=0.2):
         nms_thresh  : threshold in nms
     Output:
         boxes       : final polys <numpy.ndarray, (n,9)>
-    '''
+    """
     score = score[0, :, :]
-    xy_text = np.argwhere(score > score_thresh) # n x 2, format is [r, c]
+    xy_text = np.argwhere(score > score_thresh)  # n x 2, format is [r, c]
     if xy_text.size == 0:
         return None
 
@@ -101,14 +116,15 @@ def get_bboxes(score, geo, score_thresh=0.9, nms_thresh=0.2):
     boxes = np.zeros((polys_restored.shape[0], 9), dtype=np.float32)
     boxes[:, :8] = polys_restored
     boxes[:, 8] = score[xy_text[index, 0], xy_text[index, 1]]
-    boxes = lanms.merge_quadrangle_n9(boxes.astype('float32'), nms_thresh)
+    boxes = lanms.merge_quadrangle_n9(boxes.astype("float32"), nms_thresh)
     num_boxes = len(boxes)
 
     if num_boxes > MAX_BOX_PREDICTIONS:
-        #print_warning(num_boxes)
+        # print_warning(num_boxes)
         boxes = boxes[:MAX_BOX_PREDICTIONS]
 
     return boxes
+
 
 def detect(images, input_size, score_maps, geo_maps, map_scale=0.5):
     orig_sizes = images
@@ -121,14 +137,27 @@ def detect(images, input_size, score_maps, geo_maps, map_scale=0.5):
         geo_maps_.append(geo_map.cpu().detach().numpy())
 
     by_sample_bboxes = []
-    for score_map, geo_map, orig_size in zip(score_maps_, geo_maps_, orig_sizes):
-        map_margin = int(abs(orig_size[0] - orig_size[1]) * map_scale * input_size / max(orig_size))
+    for score_map, geo_map, orig_size in zip(
+        score_maps_, geo_maps_, orig_sizes
+    ):
+        map_margin = int(
+            abs(orig_size[0] - orig_size[1])
+            * map_scale
+            * input_size
+            / max(orig_size)
+        )
         if orig_size[0] == orig_size[1]:
-            score_map, geo_map = score_map, geo_map        
+            score_map, geo_map = score_map, geo_map
         elif orig_size[0] > orig_size[1]:
-            score_map, geo_map = score_map[:, :, :-map_margin], geo_map[:, :, :-map_margin]
+            score_map, geo_map = (
+                score_map[:, :, :-map_margin],
+                geo_map[:, :, :-map_margin],
+            )
         else:
-            score_map, geo_map = score_map[:, :-map_margin, :], geo_map[:, :-map_margin, :]
+            score_map, geo_map = (
+                score_map[:, :-map_margin, :],
+                geo_map[:, :-map_margin, :],
+            )
 
         bboxes = get_bboxes(score_map, geo_map)
         if bboxes is None:
