@@ -122,7 +122,6 @@ def detect(images, input_size, score_maps, geo_maps, map_scale=0.5):
 
     by_sample_bboxes = []
     for score_map, geo_map, orig_size in zip(score_maps_, geo_maps_, orig_sizes):
-        #for score_map_, geo_map_, orig_size in zip(score_map, geo_map, orig_size_):
         map_margin = int(abs(orig_size[0] - orig_size[1]) * map_scale * input_size / max(orig_size))
         if orig_size[0] == orig_size[1]:
             score_map, geo_map = score_map, geo_map        

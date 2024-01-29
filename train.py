@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument(
         "--data_dir",
         type=str,
-        default=os.environ.get("SM_CHANNEL_TRAIN", "/data/ephemeral/home/data/medical"),
+        default=os.environ.get("SM_CHANNEL_TRAIN", "datasets/data/medical"),
     )
     parser.add_argument(
         "--model_dir",
@@ -53,7 +53,7 @@ def parse_args():
         default=["masked", "excluded-region", "maintable", "stamp"],
     )
 
-    parser.add_argument("--name", type=str, default="metric")
+    parser.add_argument("--name", type=str, default="exp")
 
     args = parser.parse_args()
 
@@ -78,7 +78,7 @@ def do_training(
     name,
 ):
     current_time = (
-        datetime.datetime.now()
+        datetime.datetime.now() + datetime.timedelta(hours=9)
     ).strftime("%Y%m%d-%H%M%S")
     name = f"{current_time}-{name}"
     run = wandb.init(
@@ -87,22 +87,19 @@ def do_training(
 
     train_dataset = SceneTextDataset(
         data_dir,
-        split="train",
-        annfile="train.json",
+        annfile="split/train_42_fold_1.json",
         image_size=image_size,
         crop_size=input_size,
         ignore_tags=ignore_tags,
     )
     valid_dataset = SceneTextDataset(
         data_dir,
-        split="valid",
-        annfile="valid.json",
+        annfile="split/val_42_fold_1.json",
         image_size=image_size,
         crop_size=input_size,
         ignore_tags=ignore_tags,
     )
 
-    train_ufo_annos = train_dataset.anno
     valid_ufo_annos = valid_dataset.anno
 
     train_dataset = EASTDataset(train_dataset)
@@ -134,7 +131,6 @@ def do_training(
     )
     best_loss = 1e9
     for epoch in range(max_epoch):
-        # train_score_maps, train_geo_maps, train_image_sizes, train_image_fnames = [],[],[],[]
         model.train()
         train_epoch_loss, epoch_start = 0, time.time()
         with tqdm(total=train_num_batches) as pbar:
@@ -144,18 +140,6 @@ def do_training(
                 loss, extra_info = model.train_step(
                     img, gt_score_map, gt_geo_map, roi_mask
                 )
-
-                image_sizes = [[image_sizes[0][i].tolist(), image_sizes[1][i].tolist()] for i in range(len(image_sizes[0]))]
-                # for score in extra_info['score_map']:
-                #     train_score_maps.append(score)
-                #train_score_maps.append(extra_info['score_map'])
-                # for geo in extra_info['geo_map']:
-                #     train_geo_maps.append(geo)
-                #train_geo_maps.append(extra_info['geo_map'])
-                # for size in image_sizes:
-                #     train_image_sizes.append(size)
-                #train_image_sizes.append(image_sizes)
-                # train_image_fnames+=image_fnames
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -176,33 +160,6 @@ def do_training(
 
         train_loss = train_epoch_loss / train_num_batches
         t1 = time.time()
-        # pred_bboxes_dict = get_pred_bboxes_dict(
-        #         data_dir,
-        #         images=train_image_sizes,
-        #         image_fnames=train_image_fnames,
-        #         input_size=input_size,
-        #         score_maps=train_score_maps,
-        #         geo_maps=train_geo_maps, 
-        #         split='train'
-        #     )
-        # gt_bboxes_dict = get_gt_bboxes_dict(
-        #         ufo_dir=train_ufo_annos, 
-        #         images=train_image_fnames
-        #     )
-
-        # train_result = calc_deteval_metrics(pred_bboxes_dict, gt_bboxes_dict)
-        # print('train metric calcul time :', time.time()-t1)
-        # train_total = train_result['total']
-
-        # train_precision = train_total['precision']
-        # train_recall = train_total['recall']
-        # train_f1_score = train_total['hmean']
-
-        # print(
-        #    'Train Mean loss: {:.4f} | Elapsed time: {} | Precision: {:4f} | Recall: {:4f} | F1 score: {:4f}'.format(
-        #        train_epoch_loss / train_num_batches, timedelta(seconds=time.time() - epoch_start), train_precision, train_recall, train_f1_score
-        #    )
-        # )
 
         print(
            'Train Mean loss: {:.4f} | Elapsed time: {}'.format(
@@ -223,10 +180,6 @@ def do_training(
                     )
 
                     image_sizes = [[image_sizes[0][i].tolist(), image_sizes[1][i].tolist()] for i in range(len(image_sizes[0]))]
-                    # valid_score_maps.append(extra_info['score_map'])
-                    # valid_geo_maps.append(extra_info['geo_map'])
-                    # valid_image_sizes.append(image_sizes)
-                    # valid_image_fnames+=image_fnames
 
                     for score in extra_info['score_map']:
                         valid_score_maps.append(score)
@@ -249,13 +202,11 @@ def do_training(
             val_loss = valid_epoch_loss / valid_num_batches
             t1 = time.time()
             pred_bboxes_dict = get_pred_bboxes_dict(
-                data_dir,
                 images=valid_image_sizes,
                 image_fnames=valid_image_fnames,
                 input_size=input_size,
                 score_maps=valid_score_maps,
                 geo_maps=valid_geo_maps, 
-                split='valid'
             )
             gt_bboxes_dict = get_gt_bboxes_dict(
                 ufo_dir=valid_ufo_annos, 
@@ -281,9 +232,6 @@ def do_training(
                     "epochs": epoch,
                     "train_loss": train_loss,
                     "val_loss": val_loss,
-                    # "train_precision": train_precision,
-                    # "train_recall": train_recall,
-                    # "train_f1_score": train_f1_score,
                     "val_precision": val_precision,
                     "val_recall": val_recall,
                     "val_f1_score": val_f1_score,
