@@ -163,7 +163,7 @@ def do_training(
 
         print(
            'Train Mean loss: {:.4f} | Elapsed time: {}'.format(
-               train_epoch_loss / train_num_batches, timedelta(seconds=time.time() - epoch_start),
+               train_loss, timedelta(seconds=time.time() - epoch_start),
            )
         )
 
@@ -223,7 +223,7 @@ def do_training(
 
             print(
                 'Valid Mean loss: {:.4f} | Elapsed time: {} | Precision: {:.4f} | Recall: {:.4f} | F1 score: {:.4f}'.format(
-                    valid_epoch_loss / valid_num_batches, timedelta(seconds=time.time() - epoch_start), val_precision, val_recall, val_f1_score
+                    val_loss, timedelta(seconds=time.time() - epoch_start), val_precision, val_recall, val_f1_score
                 )
             )
 
