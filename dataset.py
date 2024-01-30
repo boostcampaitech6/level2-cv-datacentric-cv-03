@@ -8,6 +8,7 @@ import cv2
 import albumentations as A
 from torch.utils.data import Dataset
 from shapely.geometry import Polygon
+import random
 
 
 def cal_distance(x1, y1, x2, y2):
@@ -370,6 +371,27 @@ def filter_vertices(vertices, labels, ignore_under=0, drop_under=0):
 
     return new_vertices, new_labels
 
+def add_noise_wrapper(color='black', amounts=[0.05]):
+
+    def add_noise(image, rows, cols):
+        amount = random.choice(amounts)
+        num_noise = np.ceil(amount * rows * cols)
+        
+        # random pixel
+        coords = [np.random.randint(0, i - 1, int(num_noise)) for i in [rows, cols]]
+
+        if color == 'black':
+            image[coords[0], coords[1], :] = 0
+        elif color == 'white':
+            image[coords[0], coords[1], :] = 255
+        elif color == 'blue':
+            image[coords[0], coords[1], 0] = 125 # R
+            image[coords[0], coords[1], 1] = 200 # G
+            image[coords[0], coords[1], 2] = 230 # B
+        
+        return image
+    
+    return add_noise
 
 class SceneTextDataset(Dataset):
     def __init__(
@@ -436,6 +458,7 @@ class SceneTextDataset(Dataset):
         )
 
         image = Image.open(image_fpath)
+        ori_size = (image.size[1], image.size[0])
         image, vertices = resize_img(image, vertices, self.image_size)
         image, vertices = adjust_height(image, vertices)
         image, vertices = rotate_img(image, vertices)
@@ -445,17 +468,26 @@ class SceneTextDataset(Dataset):
             image = image.convert("RGB")
         image = np.array(image)
 
-        funcs = []
-        if self.color_jitter:
-            funcs.append(A.ColorJitter(0.5, 0.5, 0.5, 0.25))
-        if self.normalize:
-            funcs.append(
-                A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
-            )
-        transform = A.Compose(funcs)
+        # funcs = []
+        # if self.color_jitter:
+        #     funcs.append(A.ColorJitter(0.5, 0.5, 0.5, 0.25))
+        # if self.normalize:
+        #     funcs.append(
+        #         A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
+        #     )
+
+        tf_noise = A.OneOf([
+            A.Lambda(image=add_noise_wrapper(color='black', amounts=[0.01, 0.02, 0.03, 0.04, 0.05]), p=0.5),
+            A.Lambda(image=add_noise_wrapper(color='white', amounts=[0.1, 0.2, 0.3, 0.4, 0.5]), p=0.5),
+            A.Lambda(image=add_noise_wrapper(color='blue', amounts=[0.05, 0.1, 0.15, 0.2, 0.3]), p=0.5),
+        ], p=1)
+        tf_bright = A.RandomBrightness(limit=(-0.3, 0.2), p=0.5)
+        tf_norm = A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
+        
+        transform = A.Compose([tf_noise, tf_bright, tf_norm])
 
         image = transform(image=image)["image"]
         word_bboxes = np.reshape(vertices, (-1, 4, 2))
         roi_mask = generate_roi_mask(image, vertices, labels)
 
-        return image, word_bboxes, roi_mask
+        return image, word_bboxes, roi_mask, ori_size, image_fname

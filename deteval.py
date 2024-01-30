@@ -260,8 +260,9 @@ def calc_deteval_metrics(
 
         for n in range(len(pointsList)):
             points = pointsList[n]
-            transcription = transcriptionsList[n]
-            dontCare = transcription == "###" or len(points) > 4
+            # transcription = transcriptionsList[n]
+            # dontCare = transcription == "###" or len(points) > 4
+            dontCare = len(points) > 4
             gtRect = Rectangle(*points)
             gtRects.append(gtRect)
             gtPolPoints.append(np.array(points).tolist())
