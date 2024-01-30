@@ -371,27 +371,31 @@ def filter_vertices(vertices, labels, ignore_under=0, drop_under=0):
 
     return new_vertices, new_labels
 
-def add_noise_wrapper(color='black', amounts=[0.05]):
+
+def add_noise_wrapper(color="black", amounts=[0.05]):
 
     def add_noise(image, rows, cols):
         amount = random.choice(amounts)
         num_noise = np.ceil(amount * rows * cols)
-        
-        # random pixel
-        coords = [np.random.randint(0, i - 1, int(num_noise)) for i in [rows, cols]]
 
-        if color == 'black':
+        # random pixel
+        coords = [
+            np.random.randint(0, i - 1, int(num_noise)) for i in [rows, cols]
+        ]
+
+        if color == "black":
             image[coords[0], coords[1], :] = 0
-        elif color == 'white':
+        elif color == "white":
             image[coords[0], coords[1], :] = 255
-        elif color == 'blue':
-            image[coords[0], coords[1], 0] = 125 # R
-            image[coords[0], coords[1], 1] = 200 # G
-            image[coords[0], coords[1], 2] = 230 # B
-        
+        elif color == "blue":
+            image[coords[0], coords[1], 0] = 125  # R
+            image[coords[0], coords[1], 1] = 200  # G
+            image[coords[0], coords[1], 2] = 230  # B
+
         return image
-    
+
     return add_noise
+
 
 class SceneTextDataset(Dataset):
     def __init__(
@@ -476,14 +480,32 @@ class SceneTextDataset(Dataset):
         #         A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
         #     )
 
-        tf_noise = A.OneOf([
-            A.Lambda(image=add_noise_wrapper(color='black', amounts=[0.01, 0.02, 0.03, 0.04, 0.05]), p=0.5),
-            A.Lambda(image=add_noise_wrapper(color='white', amounts=[0.1, 0.2, 0.3, 0.4, 0.5]), p=0.5),
-            A.Lambda(image=add_noise_wrapper(color='blue', amounts=[0.05, 0.1, 0.15, 0.2, 0.3]), p=0.5),
-        ], p=1)
+        tf_noise = A.OneOf(
+            [
+                A.Lambda(
+                    image=add_noise_wrapper(
+                        color="black", amounts=[0.01, 0.02, 0.03, 0.04, 0.05]
+                    ),
+                    p=0.5,
+                ),
+                A.Lambda(
+                    image=add_noise_wrapper(
+                        color="white", amounts=[0.1, 0.2, 0.3, 0.4, 0.5]
+                    ),
+                    p=0.5,
+                ),
+                A.Lambda(
+                    image=add_noise_wrapper(
+                        color="blue", amounts=[0.05, 0.1, 0.15, 0.2, 0.3]
+                    ),
+                    p=0.5,
+                ),
+            ],
+            p=1,
+        )
         tf_bright = A.RandomBrightness(limit=(-0.3, 0.2), p=0.5)
         tf_norm = A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
-        
+
         transform = A.Compose([tf_noise, tf_bright, tf_norm])
 
         image = transform(image=image)["image"]
