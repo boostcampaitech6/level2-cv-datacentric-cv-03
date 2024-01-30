@@ -411,13 +411,12 @@ class SceneTextDataset(Dataset):
         color_jitter=True,
         normalize=True,
     ):
-        # Json 파일 경로
-        with open(osp.join(root_dir, "ufo/{}".format(annfile)), "r") as f:
+        with open(osp.join(root_dir, "ufo/{}.json".format(split)), "r") as f:
             anno = json.load(f)
 
         self.anno = anno
         self.image_fnames = sorted(anno["images"].keys())
-        self.image_dir = osp.join(root_dir, "img", split)  # 이미지 폴더 경로
+        self.image_dir = osp.join(root_dir, "img", split)
 
         self.image_size, self.crop_size = image_size, crop_size
         self.color_jitter, self.normalize = color_jitter, normalize
@@ -436,11 +435,22 @@ class SceneTextDataset(Dataset):
 
         vertices, labels = [], []
         for word_info in self.anno["images"][image_fname]["words"].values():
-            word_tags = word_info["tags"]
+            # word_tags = word_info['tags']
+            # In your dataset.py file, line 370
+            ########################################
+            if "tags" in word_info:
+                word_tags = word_info["tags"]
+            else:
+                word_tags = None
+            ########################################
 
-            ignore_sample = any(
-                elem for elem in word_tags if elem in self.ignore_tags
-            )
+            # ignore_sample = any(elem for elem in word_tags if elem in self.ignore_tags)
+            if word_tags is not None:
+                ignore_sample = any(
+                    elem for elem in word_tags if elem in self.ignore_tags
+                )
+            else:
+                ignore_sample = False
             num_pts = np.array(word_info["points"]).shape[0]
 
             # skip samples with ignore tag and
@@ -461,8 +471,15 @@ class SceneTextDataset(Dataset):
             drop_under=self.drop_under_threshold,
         )
 
-        image = Image.open(image_fpath)
-        ori_size = (image.size[1], image.size[0])
+        # image = Image.open(image_fpath)
+        ########################################
+        try:
+            image = Image.open(image_fpath)
+            ori_size = (image.size[1], image.size[0])
+        except FileNotFoundError:
+            print(f"File {image_fpath} not found.")
+            return None, None, None, None
+        ########################################
         image, vertices = resize_img(image, vertices, self.image_size)
         image, vertices = adjust_height(image, vertices)
         image, vertices = rotate_img(image, vertices)
@@ -476,10 +493,8 @@ class SceneTextDataset(Dataset):
         # if self.color_jitter:
         #     funcs.append(A.ColorJitter(0.5, 0.5, 0.5, 0.25))
         # if self.normalize:
-        #     funcs.append(
-        #         A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
-        #     )
-
+        #     funcs.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
+        # transform = A.Compose(funcs)
         tf_noise = A.OneOf(
             [
                 A.Lambda(
