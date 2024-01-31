@@ -1,14 +1,13 @@
 import os.path as osp
 import math
 import json
-from PIL import Image
+from PIL import Image, ImageDraw
 
 import numpy as np
 import cv2
 import albumentations as A
 from torch.utils.data import Dataset
 from shapely.geometry import Polygon
-import random
 
 
 def cal_distance(x1, y1, x2, y2):
@@ -372,29 +371,52 @@ def filter_vertices(vertices, labels, ignore_under=0, drop_under=0):
     return new_vertices, new_labels
 
 
-def add_noise_wrapper(color="black", amounts=[0.05]):
-
-    def add_noise(image, rows, cols):
-        amount = random.choice(amounts)
+def black_noise_wrapper(amount=0.05):
+    def black_noise(image, rows, cols):
         num_noise = np.ceil(amount * rows * cols)
 
         # random pixel
         coords = [
             np.random.randint(0, i - 1, int(num_noise)) for i in [rows, cols]
         ]
-
-        if color == "black":
-            image[coords[0], coords[1], :] = 0
-        elif color == "white":
-            image[coords[0], coords[1], :] = 255
-        elif color == "blue":
-            image[coords[0], coords[1], 0] = 125  # R
-            image[coords[0], coords[1], 1] = 200  # G
-            image[coords[0], coords[1], 2] = 230  # B
+        image[coords[0], coords[1], :] = 0
 
         return image
 
-    return add_noise
+    return black_noise
+
+
+def polygon_noise_wrapper(num_polygons=10000, min_radius=5, max_radius=20):
+    def polygon_noise(image, cols, rows):
+        image_size = (cols, rows)
+        noise_image = Image.new("RGBA", image_size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(noise_image)
+
+        for _ in range(num_polygons):
+            # 중심점 설정
+            center_x = np.random.randint(0, image_size[0])
+            center_y = np.random.randint(0, image_size[1])
+
+            # 다각형 꼭짓점 생성
+            polygon = []
+            for _ in range(np.random.randint(3, 6)):
+                angle = np.random.uniform(0, 2 * np.pi)
+                radius = np.random.uniform(min_radius, max_radius)
+                x = int(center_x + np.cos(angle) * radius)
+                y = int(center_y + np.sin(angle) * radius)
+                polygon.append((x, y))
+
+            # 투명도 설정
+            transparency = np.random.randint(30, 100)
+            # 다각형 그리기
+            draw.polygon(polygon, fill=(140, 215, 245, transparency))
+
+        original_image = Image.fromarray(image).convert("RGBA")
+        composite_image = Image.alpha_composite(original_image, noise_image)
+
+        return np.array(composite_image)[:, :, :3]
+
+    return polygon_noise
 
 
 class SceneTextDataset(Dataset):
@@ -417,7 +439,7 @@ class SceneTextDataset(Dataset):
 
         self.anno = anno
         self.image_fnames = sorted(anno["images"].keys())
-        self.image_dir = osp.join(root_dir, "img", split)  # 이미지 폴더 경로
+        self.image_dir = osp.join(root_dir, "img", split)
 
         self.image_size, self.crop_size = image_size, crop_size
         self.color_jitter, self.normalize = color_jitter, normalize
@@ -472,38 +494,33 @@ class SceneTextDataset(Dataset):
             image = image.convert("RGB")
         image = np.array(image)
 
-        # funcs = []
-        # if self.color_jitter:
-        #     funcs.append(A.ColorJitter(0.5, 0.5, 0.5, 0.25))
-        # if self.normalize:
-        #     funcs.append(
-        #         A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
-        #     )
+        amount = np.random.uniform(0, 0.1)  # black noise parameter
+        num_polygons = np.random.randint(7000, 20000)  # polygon num
+        min_radius, max_radius = 5, 20  # polygon size
+        factor = np.random.uniform(-0.3, 0.2)  # brightness parameter
 
         tf_noise = A.OneOf(
             [
+                A.Lambda(image=black_noise_wrapper(amount), p=1),
                 A.Lambda(
-                    image=add_noise_wrapper(
-                        color="black", amounts=[0.01, 0.02, 0.03, 0.04, 0.05]
+                    image=polygon_noise_wrapper(
+                        num_polygons, min_radius, max_radius
                     ),
-                    p=0.5,
+                    p=1,
                 ),
-                A.Lambda(
-                    image=add_noise_wrapper(
-                        color="white", amounts=[0.1, 0.2, 0.3, 0.4, 0.5]
-                    ),
-                    p=0.5,
-                ),
-                A.Lambda(
-                    image=add_noise_wrapper(
-                        color="blue", amounts=[0.05, 0.1, 0.15, 0.2, 0.3]
-                    ),
-                    p=0.5,
+                A.RandomSnow(
+                    snow_point_lower=0,
+                    snow_point_upper=0.3,
+                    brightness_coeff=2.5,
+                    always_apply=False,
+                    p=1,
                 ),
             ],
-            p=1,
+            p=0.5,
         )
-        tf_bright = A.RandomBrightness(limit=(-0.3, 0.2), p=0.5)
+        tf_bright = A.RandomBrightnessContrast(
+            brightness_limit=(factor, factor), contrast_limit=0, p=0.25
+        )
         tf_norm = A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
 
         transform = A.Compose([tf_noise, tf_bright, tf_norm])
