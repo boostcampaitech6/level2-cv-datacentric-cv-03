@@ -424,7 +424,7 @@ class SceneTextDataset(Dataset):
         self,
         root_dir,
         split="train",
-        annfile="train",
+        annfile="train.json",
         image_size=2048,
         crop_size=1024,
         ignore_tags=[],
@@ -433,7 +433,8 @@ class SceneTextDataset(Dataset):
         color_jitter=True,
         normalize=True,
     ):
-        with open(osp.join(root_dir, "ufo/{}.json".format(annfile)), "r") as f:
+        # Json 파일 경로
+        with open(osp.join(root_dir, "ufo/{}".format(annfile)), "r") as f:
             anno = json.load(f)
 
         self.anno = anno
@@ -483,6 +484,7 @@ class SceneTextDataset(Dataset):
         )
 
         image = Image.open(image_fpath)
+        ori_size = (image.size[1], image.size[0])
         image, vertices = resize_img(image, vertices, self.image_size)
         image, vertices = adjust_height(image, vertices)
         image, vertices = rotate_img(image, vertices)
@@ -527,4 +529,4 @@ class SceneTextDataset(Dataset):
         word_bboxes = np.reshape(vertices, (-1, 4, 2))
         roi_mask = generate_roi_mask(image, vertices, labels)
 
-        return image, word_bboxes, roi_mask
+        return image, word_bboxes, roi_mask, ori_size, image_fname
