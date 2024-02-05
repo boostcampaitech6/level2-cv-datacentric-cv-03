@@ -11,7 +11,9 @@ def read_json(filename: str):
     return ann
 
 
-def save_vis_to_img(save_dir: str | os.PathLike = None, img_lists: list = None) -> None:
+def save_vis_to_img(
+    save_dir: str | os.PathLike = None, img_lists: list = None
+) -> None:
     if not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
 
@@ -34,7 +36,9 @@ def save_vis_to_img(save_dir: str | os.PathLike = None, img_lists: list = None) 
     }
 
     for i in range(len(img_lists)):
-        img_json = [[k, v] for k, v in data["images"].items() if k == img_lists[i]]
+        img_json = [
+            [k, v] for k, v in data["images"].items() if k == img_lists[i]
+        ]
         img_path = img_json[0][0]
         img = Image.open(
             os.path.join(
