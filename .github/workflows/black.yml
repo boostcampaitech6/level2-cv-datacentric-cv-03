@@ -1,0 +1,16 @@
+name: black formatter # github action 이름
+
+on:
+  pull_request: # main에 pull_request 요청이 왔을 때 workflow(jobs) 실행
+    branches:
+      - 'main'
+
+jobs:
+  Black_code_formatter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: psf/black@stable
+        with:
+          options: "-l 79 --diff --color --check"
+          src: "./"
